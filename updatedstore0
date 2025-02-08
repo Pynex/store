@@ -150,7 +150,7 @@ contract Store is  Ownable {
         isMecrchant[_merchant] = true;
     }
 
-     constructor(address initialOwner) Ownable(initialOwner) {}
+    constructor(address initialOwner) Ownable(initialOwner) {}
 
     function addProduct (uint _price, string calldata _productName, uint _amount, uint _id) public merchant {
         require(!isIdExist(_id), idAlreadyExist());
@@ -225,13 +225,19 @@ contract Store is  Ownable {
         products.pop();
     }
 
-    function deleteDiscountTicketForUser (uint _id, address _user) internal {
-        require(findDiscountTickets(_user).length != 0,userDoesNotHaveTicket());
-        uint index = findIndexForDiscountTicketByIndex(_id, _user);
+    function deleteDiscountTicketForUser(uint _id, address _user) internal {
+    
+    DiscountTicket[] storage userTickets = discountTicketForUser[_user];
 
-        discountTickets[index] = discountTickets[discountTickets.length - 1];
-        discountTickets.pop();
+    require(userTickets.length != 0, userDoesNotHaveTicket());
+
+    uint index = findIndexForDiscountTicketByIndex(_id, _user);
+
+    if (index != userTickets.length - 1) {
+        userTickets[index] = userTickets[userTickets.length - 1];
     }
+    userTickets.pop();
+}
 
     function updateBlockedFunds () public {
         changeStatusAndUnblockFunds(msg.sender);
@@ -239,13 +245,15 @@ contract Store is  Ownable {
 
     function withdraw (uint _money) public payable {
         uint balance = address(this).balance;
+        uint fee = 5; //5%
         changeStatusAndUnblockFunds(msg.sender);
 
         require(balance >= _money, "NotEnoughFunds!");
         require(_money <= userBalance[msg.sender]);
-
-        payable(msg.sender).transfer(_money);
+        //                          1000 - 1000/10*5
+        payable(msg.sender).transfer(_money - _money/100*fee);
         userBalance[msg.sender] -= _money;
+        userBalance[owner()] += _money/100*fee;
     }
 
     function findIndexById (uint _id) internal view returns (uint, bool) {
@@ -257,26 +265,33 @@ contract Store is  Ownable {
          return (0,false);
     }
 
-    function findIndexForDiscountTicketByIndex (uint _id, address _user) internal view returns(uint) {
-        require(findDiscountTickets(_user).length != 0, userDoesNotHaveTicket());
-        for (uint i = 0; i < findDiscountTickets(_user).length; i++) {
-            if (discountTickets[i].id == _id) {
-                return (i);
+    function findIndexForDiscountTicketByIndex(uint _id, address _user) internal view returns (uint) {
+    
+        DiscountTicket[] memory userTickets = findDiscountTickets(_user);
+
+        require(userTickets.length != 0, userDoesNotHaveTicket());
+
+        for (uint i = 0; i < userTickets.length; i++) {
+            if (userTickets[i].id == _id) {
+                return i;
             }
         }
+    
         revert ticketIndexNotFound();
     }
 
-    function buyProduct (uint _id, uint _quantity,bool _useDiscount) public {
+    function buyProduct (uint _id, uint _quantity,uint _useDiscount) public {
         require(getAmount(_id) >= _quantity, notEnoughProductsToBuy());
         require(_quantity != 0, incorrectAmount());
         require(isIdExist(_id) == true,idDoesNotExist());
         require(getPrice(_id) * _quantity <= userBalance[msg.sender], notEnoughFunds());
+        require(_useDiscount < 2);
         uint totalPrice = getPrice(_id) * _quantity;
         address user = msg.sender;
         address creator = getCreator(_id);
-
-        if (_useDiscount == true) {
+        // if _useDiscount == 1 = true
+        // if _useDiscount == 0 = false
+        if (_useDiscount == 1) {
             require(_quantity == getDisAmount(user,_id), writeCorrectAmount());
             uint discount = getDiscount(user, _id);
             // 750 = 1000 - 1000/100*35
@@ -303,7 +318,7 @@ contract Store is  Ownable {
         areUsersFundsBlocked[_user] = true;
     }
 
-    function changeStatusAndUnblockFunds (address _user) public  {
+    function changeStatusAndUnblockFunds (address _user) internal  {
         if (block.timestamp > unlockTime[_user]) {
             areUsersFundsBlocked[_user] = false;
             uint totalFunds = getBlockedBalance(_user);
@@ -348,8 +363,7 @@ contract Store is  Ownable {
         setActivationTime(_creator);
     }
    
-
-    function batchBuy(uint[] calldata _ids, uint[] calldata _quantities, bool[] calldata _useDiscount) public {
+    function batchBuy(uint[] calldata _ids, uint[] calldata _quantities, uint[] calldata _useDiscount) public {
         require(_ids.length == _quantities.length , arraysMismatch());
         require(_ids.length == _useDiscount.length, arraysMismatch());
         uint totalPrice = 0;
@@ -359,7 +373,7 @@ contract Store is  Ownable {
             address creator = getCreator(_ids[i]);
             uint price = getPrice(_ids[i]) * _quantities[i];
 
-            if (_useDiscount[i]) {
+            if (_useDiscount[i] == 1) {
                 require(_quantities[i] == getDisAmount(msg.sender, _ids[i]), writeCorrectAmount());
                 uint discount = getDiscount(msg.sender, _ids[i]);
                 price = price - (price / 100 * discount); 
@@ -381,7 +395,7 @@ contract Store is  Ownable {
             address creator = getCreator(_ids[i]);
             uint price = getPrice(_ids[i]) * _quantities[i];
         
-            if (_useDiscount[i]) {
+            if (_useDiscount[i] == 1) {
                 uint discount = getDiscount(msg.sender, _ids[i]);
                 price = price - (price / 100 * discount); 
             }
@@ -449,8 +463,3 @@ contract Store is  Ownable {
         FundsBlocked[creator] -=refundAmount;
     }
 }       
-        
-        //add discountForProducts functionality
-        //add fees for merchants and withdraw money for purcchases inst in their address
-        //add blackjack and bitches
-    
