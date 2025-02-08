@@ -383,6 +383,7 @@ contract Store is  Ownable {
                 deleteDiscountTicketForUser(_ids[i], msg.sender);
             }
 
+            _buyProcess(msg.sender, _ids[i], _quantities[i], creator, price);
 
             totalPrice += price;
 
@@ -391,20 +392,6 @@ contract Store is  Ownable {
 
         }
         require(totalPrice <= userBalance[msg.sender], notEnoughFunds());
-
-
- 
-        for (uint i = 0; i < _ids.length; i++) {
-            address creator = getCreator(_ids[i]);
-            uint price = getPrice(_ids[i]) * _quantities[i];
-        
-            if (_useDiscount[i] == 1) {
-                uint discount = getDiscount(msg.sender, _ids[i]);
-                price = price - (price / 100 * discount); 
-            }
-
-            _buyProcess(msg.sender, _ids[i], _quantities[i], creator, price);
-        }
     }
     
     function getTopPurchasedProduct () public view returns (uint) {
