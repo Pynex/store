@@ -432,7 +432,7 @@ contract Store is  Ownable {
     }
 
 
-    function getProducts () public view returns (Product[] memory) {
+    function getProducts () external view returns (Product[] memory) {
         require(products.length != 0, ProductsDoesNotExist());
         return products;
     }
