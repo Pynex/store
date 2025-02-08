@@ -5,6 +5,9 @@ pragma solidity ^0.8.28;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
+/// @title Store Contract for Managing Products and Purchases
+/// @author Pynex
+/// @notice This contract allows adding products, managing discounts, and making purchases.
 
 contract Store is  Ownable {
 
