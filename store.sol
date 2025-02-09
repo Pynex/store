@@ -31,7 +31,7 @@ contract Store is  Ownable {
     mapping (address => uint) public unlockTime;
     /// @notice user => product_id => discount(in %) => amount
     mapping (address => DiscountTicket[]) public discountTicketForUser;
-    uint public delayTime = 30;
+    uint public delayTime = 20 hours;
 
     event Purchase(address buyer, uint id, uint quantity, address creator, uint price);
     event Refund(address buyer,uint id, uint amount,address creator, uint price);
@@ -346,7 +346,6 @@ contract Store is  Ownable {
 
         emit Purchase(_buyer, _id, _quantity, _creator, _price);
 
-        setActivationTime(_buyer);
         setActivationTime(_creator);
     }
     
