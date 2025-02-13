@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.28;
-
+pragma solidity 0.8.28;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title Store Contract for Managing Products and Purchases
 /// @author Pynex
 /// @notice This contract allows adding products, managing discounts, and making purchases.
-
 contract Store is  Ownable {
 
     address[] public merchants;
@@ -61,6 +59,7 @@ contract Store is  Ownable {
     error creatorNotFound();
     error discountCantBeMoreThen100();
     error discountCantBeEqZero();
+    error MerchantsDoesNotExist();
     error yourFundsBlocked();
     error userDoesNotHaveTicket();
     error incorrectShoppingCart();
@@ -87,6 +86,10 @@ contract Store is  Ownable {
         require(msg.value > 0, incorrectDeposit());
         userBalance[msg.sender] += msg.value;
     }
+    function getMerchants () external view returns (address[] memory) {
+        require(merchants.length != 0, MerchantsDoesNotExist());
+        return merchants;
+    }
     function addDiscountTicket (uint _discount, uint _id, uint _amount,address _user) public merchant {
         require(isIdExist(_id) == true,idDoesNotExist());
         require(_user != address(0),incorrectAddress());
@@ -98,7 +101,7 @@ contract Store is  Ownable {
             discount: _discount,
             amount: _amount,
             id: _id,
-            user: msg.sender
+            user: _user
         });
 
         discountTicketForUser[_user].push(newTicket);
@@ -155,6 +158,7 @@ contract Store is  Ownable {
 
     constructor(address initialOwner) Ownable(initialOwner) {}
 
+
     function addProduct (uint _price, string calldata _productName, uint _amount, uint _id) public merchant {
         require(!isIdExist(_id), idAlreadyExist());
         address _creator = msg.sender;
@@ -198,7 +202,7 @@ contract Store is  Ownable {
         return (product.creator);
     }
 
-    function findCreator(uint _id) internal view returns (address) {
+    function findCreator(uint _id) public view returns (address) {
         require(isIdExist(_id) == true,idDoesNotExist());
         for (uint i = 0;i <products.length; i++) {
             if (products[i].id == _id) {
@@ -230,17 +234,18 @@ contract Store is  Ownable {
 
     function deleteDiscountTicketForUser(uint _id, address _user) internal {
     
-    DiscountTicket[] storage userTickets = discountTicketForUser[_user];
+        DiscountTicket[] storage userTickets = discountTicketForUser[_user];
 
-    require(userTickets.length != 0, userDoesNotHaveTicket());
+        require(userTickets.length != 0, userDoesNotHaveTicket());
 
-    uint index = findIndexForDiscountTicketByIndex(_id, _user);
+        uint index = findIndexForDiscountTicketByIndex(_id, _user);
 
-    if (index != userTickets.length - 1) {
-        userTickets[index] = userTickets[userTickets.length - 1];
+            if (index != userTickets.length - 1) {
+                userTickets[index] = userTickets[userTickets.length - 1];
+            }
+
+        userTickets.pop();
     }
-    userTickets.pop();
-}
 
     function updateBlockedFunds () public {
         changeStatusAndUnblockFunds(msg.sender);
@@ -292,13 +297,11 @@ contract Store is  Ownable {
         uint totalPrice = getPrice(_id) * _quantity;
         address user = msg.sender;
         address creator = getCreator(_id);
-        // if _useDiscount == 1 = true
-        // if _useDiscount == 0 = false
+        
         if (_useDiscount == 1) {
             require(_quantity == getDisAmount(user,_id), writeCorrectAmount());
             uint discount = getDiscount(user, _id);
-            // 750 = 1000 - 1000/100*35
-            //distotalprice = totalprice - totalprice/100*discount
+            
             uint disTotalPrice = totalPrice - totalPrice/100*discount;
 
             _buyProcess(msg.sender, _id, _quantity, creator, getPrice(_id));
@@ -346,6 +349,7 @@ contract Store is  Ownable {
 
         emit Purchase(_buyer, _id, _quantity, _creator, _price);
 
+        
         setActivationTime(_creator);
     }
     
@@ -431,9 +435,19 @@ contract Store is  Ownable {
     }
 
 
-    function getProducts () external view returns (Product[] memory) {
+    function getProducts () external  view returns (Product[] memory) {
         require(products.length != 0, ProductsDoesNotExist());
         return products;
+    }
+    function getProductById(uint _id) external view returns (Product memory) {
+        require(products.length != 0, ProductsDoesNotExist());
+
+        for (uint i = 0; i <products.length; i++) {
+            if(products[i].id == _id) {
+                return products[i];
+            }
+        }
+        revert("ProductNotFound");
     }
 
     function refund (uint _id, uint _amount) public {
@@ -451,4 +465,4 @@ contract Store is  Ownable {
         FundsBlocked[msg.sender] += refundAmount;
         FundsBlocked[creator] -=refundAmount;
     }
-}       
+}
