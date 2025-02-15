@@ -62,6 +62,7 @@ contract Store is  Ownable {
     error MerchantsDoesNotExist();
     error yourFundsBlocked();
     error userDoesNotHaveTicket();
+    error userDoesNotHaveBlockedFunds();
     error incorrectShoppingCart();
 
 
@@ -145,6 +146,7 @@ contract Store is  Ownable {
     function getBalance() public view returns (uint) {
         return (userBalance[msg.sender]);
     }
+
 
     function getBlockedBalance (address _user) public view returns (uint) {
         return (FundsBlocked[_user]);
@@ -260,11 +262,12 @@ contract Store is  Ownable {
         require(_money <= userBalance[msg.sender]);
         //                          1000 - 1000/10*5
         payable(msg.sender).transfer(_money - _money/100*fee);
+
         userBalance[msg.sender] -= _money;
         userBalance[owner()] += _money/100*fee;
     }
 
-    function findIndexById (uint _id) internal view returns (uint, bool) {
+    function findIndexById (uint _id) public view returns (uint, bool) {
         for (uint i = 0; i < products.length; i++) {
             if (products[i].id == _id) {
                 return (i,true);
@@ -304,7 +307,7 @@ contract Store is  Ownable {
             
             uint disTotalPrice = totalPrice - totalPrice/100*discount;
 
-            _buyProcess(msg.sender, _id, _quantity, creator, getPrice(_id));
+            _buyProcess(msg.sender, _id, _quantity, creator, getPrice(_id)/100*(100-discount));
 
             FundsBlocked[creator] += disTotalPrice;
             userBalance[msg.sender] -= disTotalPrice;
@@ -334,7 +337,11 @@ contract Store is  Ownable {
     }
 
     function prematureUnblockingFunds (address _user) public onlyOwner {
+        require(FundsBlocked[_user] != 0, userDoesNotHaveBlockedFunds());
         areUsersFundsBlocked[_user] = false;
+        uint totalFunds = getBlockedBalance(_user);
+            userBalance[_user] += totalFunds;
+            FundsBlocked[_user] -= totalFunds;
     }
 
     function _buyProcess (address _buyer, uint _id, uint _quantity,address _creator,uint _price) internal {
@@ -391,7 +398,7 @@ contract Store is  Ownable {
             totalPrice += price;
 
             FundsBlocked[creator] += price;
-            userBalance[msg.sender] -=price;
+            userBalance[msg.sender] -= price;
 
         }
         require(totalPrice <= userBalance[msg.sender], notEnoughFunds());
